@@ -1,7 +1,7 @@
 <template>
-  <div class="pt-96">
+  <div class="pt-40">
     <div class="min-h-52 mx-auto w-96 bg-white p-5 shadow">
-      <h1 class="text-center text-xl">Kronos Template</h1>
+      <h1 class="text-center font-itim text-xl font-bold">Prayer Time</h1>
       <div class="flex w-full justify-around pt-5">
         <Dropdown
           @change="getTime"
@@ -13,18 +13,27 @@
           optionGroupChildren="items"
         >
           <template #optiongroup="slotProps">
-            <div class="text-sm">{{ slotProps.option.label }}</div>
+            <div class="font-noto-serif text-sm">
+              {{ slotProps.option.label }}
+            </div>
           </template>
 
           <template #option="slotProps">
-            <div class="max-w-xs whitespace-normal text-sm">
+            <div class="max-w-xs whitespace-normal font-noto-serif text-sm">
               {{ slotProps.option.label }}
             </div>
           </template>
         </Dropdown>
       </div>
-      <div v-for="(day, index) in prayerTime">
-        <span :key="index">{{ index }} - {{ formatTime(day) }} </span>
+      <div class="mt-7 flex flex-col gap-1 font-itim">
+        <div
+          class="flex justify-between"
+          :key="index"
+          v-for="(day, index) in prayerTime"
+        >
+          <span class="uppercase" :key="index">{{ index }}</span>
+          <span :key="index">{{ formatTime(day) }} </span>
+        </div>
       </div>
     </div>
   </div>
@@ -38,18 +47,17 @@ import Dropdown from "primevue/dropdown";
 const date = DateTime.now().toISODate();
 
 let zoneList = ref([]);
-let selectedZone = ref("");
 let selectedZoneGroup = ref("");
-let prayerTime = ref({});
+let prayerTime = ref<any>({});
 
 const ky = useKy();
 
-const formatTime = (time) => {
+const formatTime = (time: string) => {
   const formattedTime = DateTime.fromFormat(time, "t").toFormat("t").toString();
   return formattedTime;
 };
 
-const getTime = async (value) => {
+const getTime = async (value: any) => {
   const data = await ky
     .get("time", {
       searchParams: {

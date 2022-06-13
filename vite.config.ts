@@ -28,7 +28,10 @@ export default ({ mode }) => {
       HtmlConfig({}),
       // Import google fonts here, https://fonts.google.com/
       // Reference - https://github.com/feat-agency/vite-plugin-webfont-dl
-      ViteWebfontDownload([]),
+      ViteWebfontDownload([
+        "https://fonts.googleapis.com/css2?family=Itim&display=swap",
+        "https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;700&display=swap",
+      ]),
       // Layouts like nuxt
       // Reference - https://github.com/JohnCampionJr/vite-plugin-vue-layouts
       Layouts(),
