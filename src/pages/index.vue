@@ -25,14 +25,22 @@
           </template>
         </Dropdown>
       </div>
+      <div class="mt-5 flex justify-center font-itim text-lg">
+        Prayer times for
+        {{ getTimingFor() }}
+      </div>
       <div class="mt-7 flex flex-col gap-1 font-itim">
         <div
           class="flex justify-between"
           :key="index"
           v-for="(day, index) in prayerTime"
         >
-          <span class="uppercase" :key="index">{{ index }}</span>
-          <span :key="index">{{ formatTime(day) }} </span>
+          <span v-if="index !== 'date'" class="uppercase" :key="index">{{
+            index
+          }}</span>
+          <span v-if="index !== 'date'" :key="index"
+            >{{ formatTime(day) }}
+          </span>
         </div>
       </div>
     </div>
@@ -48,12 +56,20 @@ const date = DateTime.now().toISODate();
 
 let zoneList = ref([]);
 let selectedZoneGroup = ref("");
-let prayerTime = ref<any>({});
+let prayerTime = ref<any>(null);
 
 const ky = useKy();
 
+const getTimingFor = () => {
+  if (prayerTime.value)
+    return DateTime.fromISO(prayerTime.value.date).toLocaleString();
+  else return DateTime.now().toLocaleString();
+};
+
 const formatTime = (time: string) => {
-  const formattedTime = DateTime.fromFormat(time, "t").toFormat("t").toString();
+  const formattedTime = DateTime.fromFormat(time, "t")
+    .toFormat("hh:mm a")
+    .toString();
   return formattedTime;
 };
 
@@ -66,8 +82,6 @@ const getTime = async (value: any) => {
       },
     })
     .json();
-
-  delete data.date;
 
   prayerTime.value = data;
 };
