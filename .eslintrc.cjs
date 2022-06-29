@@ -19,6 +19,7 @@ module.exports = {
         peerDependencies: false,
       },
     ],
+    "vue/multi-word-component-names": "off",
   },
   settings: {
     "import/parsers": {
