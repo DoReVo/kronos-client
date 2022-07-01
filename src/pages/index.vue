@@ -13,12 +13,13 @@ import IconLocation from "@/components/IconLocation.vue";
 import TimeBox from "../components/TimeBox.vue";
 import _ from "lodash-es";
 import Spinner from "../components/Spinner.vue";
+import { useStorage } from "@vueuse/core";
 
 const now = ref<DateTime>(DateTime.now());
 let tick;
 
 let isLoadingNewTime = ref(false);
-let selectedZone = ref("");
+let selectedZone = useStorage("defaultZone", "");
 let closestKey = ref();
 let closestTime = ref<DateTime>();
 let zoneList = ref<ZoneOptionResponse.Response | Record<string, never>>({});
@@ -33,7 +34,7 @@ let dayData = ref<PrayerTimeResponse.Response | Record<string, never>>({
   isha: "",
 });
 
-onMounted(() => {
+onMounted(async () => {
   tick = setInterval(() => {
     now.value = now.value.plus({ millisecond: 100 });
   }, 100);
@@ -66,11 +67,10 @@ const countDown = computed(() => {
   const min = diff.minutes;
 
   let text: string;
-  if (hour && hour > 0) text = `${hour} hour`;
-
-  if (hour && hour > 0 && min && min > 0)
-    text = `${text} ${min.toFixed(0)} minute`;
-  else if (min && min > 0) text = `${min.toFixed(0)} minute`;
+  if (hour && hour > 0) {
+    text = `${hour} hour`;
+    if (min && min > 0) text = `${text} ${min.toFixed(0)} minute`;
+  } else if (min && min > 0) text = `${min.toFixed(0)} minute`;
 
   return text;
 });
@@ -79,11 +79,55 @@ const ky = useKy();
 
 // Fetch new time on zone change
 watch(selectedZone, async () => {
+  const zone: string = selectedZone.value.split("/")[1];
+  await getTime(zone);
+});
+
+const getStateText = computed(() => {
+  if (!selectedZone.value) return null;
+
+  const state = selectedZone.value.split("/")[0];
+
+  return state;
+});
+
+console.log(zoneList.value);
+
+const getZoneText = computed(() => {
+  if (!selectedZone.value || _.isEmpty(zoneList.value)) return null;
+
+  const zone: string[] = selectedZone.value.split("/");
+
+  return zoneList.value[zone[0]][zone[1]];
+});
+
+const getTimingFor = () => {
+  if (!_.isEmpty(dayData.value) && dayData.value.date)
+    return DateTime.fromISO(dayData.value.date).toLocaleString();
+  else return null;
+};
+
+const formatTime = (time: string) => {
+  const formattedTime = DateTime.fromFormat(time, "t")
+    .toFormat("hh:mm a")
+    .toString();
+  return formattedTime;
+};
+
+const getTime = async (zone: string) => {
   try {
     isLoadingNewTime.value = true;
-    const zone: string = selectedZone.value.split("/")[1];
 
-    await getTime(zone);
+    const data = await ky
+      .get("time", {
+        searchParams: {
+          date: now.value.toISODate(),
+          zone,
+        },
+      })
+      .json<PrayerTimeResponse.Response>();
+
+    dayData.value = data;
 
     const timesAndtime: [string, DateTime][] = [];
 
@@ -112,48 +156,6 @@ watch(selectedZone, async () => {
   } finally {
     isLoadingNewTime.value = false;
   }
-});
-
-function getStateText() {
-  if (!selectedZone.value) return null;
-
-  const state = selectedZone.value.split("/")[0];
-
-  return state;
-}
-
-function getZoneText() {
-  if (!selectedZone.value) return null;
-
-  const zone: string[] = selectedZone.value.split("/");
-
-  return zoneList.value[zone[0]][zone[1]];
-}
-
-const getTimingFor = () => {
-  if (!_.isEmpty(dayData.value) && dayData.value.date)
-    return DateTime.fromISO(dayData.value.date).toLocaleString();
-  else return null;
-};
-
-const formatTime = (time: string) => {
-  const formattedTime = DateTime.fromFormat(time, "t")
-    .toFormat("hh:mm a")
-    .toString();
-  return formattedTime;
-};
-
-const getTime = async (zone: string) => {
-  const data = await ky
-    .get("time", {
-      searchParams: {
-        date: now.value.toISODate(),
-        zone,
-      },
-    })
-    .json<PrayerTimeResponse.Response>();
-
-  dayData.value = data;
 };
 async function getZones() {
   const zones = await ky
@@ -163,7 +165,12 @@ async function getZones() {
   zoneList.value = zones;
 }
 
-getZones();
+async function setupApp() {
+  await getZones();
+  if (selectedZone.value) await getTime(selectedZone.value.split("/")[1]);
+}
+
+setupApp();
 </script>
 
 <template>
@@ -188,7 +195,7 @@ getZones();
           style="box-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
         >
           <IconLocation class="h-5 w-5 text-white" />
-          {{ getStateText() || "Choose location" }}
+          {{ getStateText || "Choose location" }}
         </ListboxButton>
         <transition
           enter-active-class="transition duration-150	ease-out"
@@ -233,7 +240,7 @@ getZones();
       class="mx-auto mt-3 h-14 max-w-xl px-10 text-center font-vollkorn text-base font-bold lining-nums proportional-nums text-primary"
       style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
     >
-      {{ getZoneText() }}
+      {{ getZoneText }}
     </div>
 
     <div
@@ -242,7 +249,7 @@ getZones();
       <Spinner
         class="w-h-10 mx-auto h-10 text-primary"
         v-if="isLoadingNewTime"
-      ></Spinner>
+      />
       <TimeBox
         v-for="(value, key) in prayerTime"
         :key="key"
