@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import useKy from "@/compositions/useKy";
 import { DateTime } from "luxon";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import {
   Listbox,
   ListboxButton,
@@ -11,33 +10,58 @@ import {
 import type { ZoneOptionResponse, PrayerTimeResponse } from "@/types/API";
 import IconLocation from "@/components/IconLocation.vue";
 import TimeBox from "../components/TimeBox.vue";
-import _ from "lodash-es";
+import { isEmpty } from "lodash-es";
 import Spinner from "../components/Spinner.vue";
 import { useStorage } from "@vueuse/core";
+import { useQuery } from "vue-query";
+import { fetchDailyTime, fetchZones } from "@/API/Time";
 
 const now = ref<DateTime>(DateTime.now());
-let tick;
 
-let isLoadingNewTime = ref(false);
 let selectedZone = useStorage("defaultZone", "");
-let closestKey = ref();
-let closestTime = ref<DateTime>();
-let zoneList = ref<ZoneOptionResponse.Response | Record<string, never>>({});
-let dayData = ref<PrayerTimeResponse.Response | Record<string, never>>({
-  date: "",
-  imsak: "",
-  fajr: "",
-  syuruk: "",
-  dhuhr: "",
-  asr: "",
-  maghrib: "",
-  isha: "",
-});
+let { data: zoneList } = useQuery<ZoneOptionResponse.Response>(
+  "zones",
+  fetchZones
+);
+
+let { isLoading: isLoadingNewTime, data: dayData } =
+  useQuery<PrayerTimeResponse.Response>(
+    [selectedZone],
+    async () => {
+      if (!selectedZone.value)
+        return {
+          date: "",
+          imsak: "",
+          fajr: "",
+          syuruk: "",
+          dhuhr: "",
+          asr: "",
+          maghrib: "",
+          isha: "",
+        };
+      const data = await fetchDailyTime(selectedZone.value.split("/")[1]);
+
+      return data;
+    },
+    {
+      refetchOnWindowFocus: true,
+      placeholderData: {
+        date: "",
+        imsak: "",
+        fajr: "",
+        syuruk: "",
+        dhuhr: "",
+        asr: "",
+        maghrib: "",
+        isha: "",
+      },
+    }
+  );
 
 onMounted(async () => {
-  tick = setInterval(() => {
+  setInterval(() => {
     now.value = now.value.plus({ millisecond: 100 });
-  }, 100);
+  }, 1000);
 });
 
 const prayerTime = computed(() => {
@@ -48,10 +72,62 @@ const prayerTime = computed(() => {
 
   type ObjectKey = keyof typeof data;
 
-  for (const [key, value] of Object.entries(dayData.value)) {
+  for (const [key, value] of Object.entries(dayData.value!)) {
     if (key !== "date") data[key as ObjectKey] = value;
   }
 
+  return data;
+});
+
+const closestKey = computed(() => {
+  const timesAndtime: [string, DateTime][] = [];
+
+  for (const [key, time] of Object.entries(prayerTime.value)) {
+    const t = DateTime.fromFormat(time, "t");
+    timesAndtime.push([key, t]);
+  }
+
+  let sortedTimes = timesAndtime.sort(
+    (a, b) =>
+      Math.abs(now.value.toMillis() - a[1].toMillis()) -
+      Math.abs(now.value.toMillis() - b[1].toMillis())
+  );
+
+  let data;
+  for (const time of sortedTimes) {
+    if (time[1] < now.value) {
+      continue;
+    } else {
+      data = time[0];
+      break;
+    }
+  }
+  return data;
+});
+
+const closestTime = computed(() => {
+  const timesAndtime: [string, DateTime][] = [];
+
+  for (const [key, time] of Object.entries(prayerTime.value)) {
+    const t = DateTime.fromFormat(time, "t");
+    timesAndtime.push([key, t]);
+  }
+
+  let sortedTimes = timesAndtime.sort(
+    (a, b) =>
+      Math.abs(now.value.toMillis() - a[1].toMillis()) -
+      Math.abs(now.value.toMillis() - b[1].toMillis())
+  );
+
+  let data;
+  for (const time of sortedTimes) {
+    if (time[1] < now.value) {
+      continue;
+    } else {
+      data = time[1];
+      break;
+    }
+  }
   return data;
 });
 
@@ -72,15 +148,7 @@ const countDown = computed(() => {
     if (min && min > 0) text = `${text} ${min.toFixed(0)} minute`;
   } else if (min && min > 0) text = `${min.toFixed(0)} minute`;
 
-  return text;
-});
-
-const ky = useKy();
-
-// Fetch new time on zone change
-watch(selectedZone, async () => {
-  const zone: string = selectedZone.value.split("/")[1];
-  await getTime(zone);
+  return text!;
 });
 
 const getStateText = computed(() => {
@@ -91,98 +159,31 @@ const getStateText = computed(() => {
   return state;
 });
 
-console.log(zoneList.value);
-
 const getZoneText = computed(() => {
-  if (!selectedZone.value || _.isEmpty(zoneList.value)) return null;
+  if (!selectedZone.value || isEmpty(zoneList.value)) return null;
 
   const zone: string[] = selectedZone.value.split("/");
 
-  return zoneList.value[zone[0]][zone[1]];
+  return zoneList.value![zone[0]][zone[1]];
 });
 
 const getTimingFor = () => {
-  if (!_.isEmpty(dayData.value) && dayData.value.date)
+  if (!isEmpty(dayData) && dayData.value && dayData.value.date)
     return DateTime.fromISO(dayData.value.date).toLocaleString();
   else return null;
 };
-
-const formatTime = (time: string) => {
-  const formattedTime = DateTime.fromFormat(time, "t")
-    .toFormat("hh:mm a")
-    .toString();
-  return formattedTime;
-};
-
-const getTime = async (zone: string) => {
-  try {
-    isLoadingNewTime.value = true;
-
-    const data = await ky
-      .get("time", {
-        searchParams: {
-          date: now.value.toISODate(),
-          zone,
-        },
-      })
-      .json<PrayerTimeResponse.Response>();
-
-    dayData.value = data;
-
-    const timesAndtime: [string, DateTime][] = [];
-
-    for (const [key, time] of Object.entries(prayerTime.value)) {
-      const t = DateTime.fromFormat(time, "t");
-      timesAndtime.push([key, t]);
-    }
-
-    let sortedTimes = timesAndtime.sort(
-      (a, b) =>
-        Math.abs(now.value.toMillis() - a[1].toMillis()) -
-        Math.abs(now.value.toMillis() - b[1].toMillis())
-    );
-
-    for (const time of sortedTimes) {
-      if (time[1] < now.value) {
-        continue;
-      } else {
-        closestKey.value = time[0];
-        closestTime.value = time[1];
-        break;
-      }
-    }
-  } catch (error) {
-    console.log(error);
-  } finally {
-    isLoadingNewTime.value = false;
-  }
-};
-async function getZones() {
-  const zones = await ky
-    .get(`selectionoptions`)
-    .json<ZoneOptionResponse.Response>();
-
-  zoneList.value = zones;
-}
-
-async function setupApp() {
-  await getZones();
-  if (selectedZone.value) await getTime(selectedZone.value.split("/")[1]);
-}
-
-setupApp();
 </script>
 
 <template>
   <div class="min-h-screen">
     <div
-      class="pt-14 text-center font-domine text-4xl text-white"
+      class="min-h-[40px] pt-14 text-center font-domine text-4xl text-white"
       style="text-shadow: 0px 5px 5px rgba(255, 255, 255, 0.1)"
     >
       {{ countDown }}
     </div>
     <div
-      class="text-center font-vollkorn text-3xl font-bold capitalize text-primary"
+      class="min-h-[40px] text-center font-vollkorn text-3xl font-bold capitalize text-primary"
       style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
       v-show="countDown"
     >

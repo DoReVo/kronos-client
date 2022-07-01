@@ -18,6 +18,7 @@
     "luxon": "^2.4.0",
     "pinia": "^2.0.14",
     "vue": "^3.2.37",
+    "vue-query": "^1.25.0",
     "vue-router": "^4.0.16"
   },
   "devDependencies": {

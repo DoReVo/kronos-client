@@ -6,6 +6,8 @@ import App from "./App.vue";
 import { setupLayouts } from "virtual:generated-layouts";
 // eslint-disable-next-line import/no-unresolved
 import VirtualPages from "~pages";
+import { MotionPlugin } from "@vueuse/motion";
+import { VueQueryPlugin } from "vue-query";
 
 // Tailwind stuff inside here
 import "./main.css";
@@ -21,5 +23,7 @@ const app = createApp(App);
 
 app.use(router);
 app.use(createPinia());
+app.use(MotionPlugin);
+app.use(VueQueryPlugin);
 
 app.mount("#app");
