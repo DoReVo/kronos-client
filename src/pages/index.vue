@@ -19,9 +19,21 @@ import { fetchDailyTime, fetchZones } from "@/API/Time";
 const now = ref<DateTime>(DateTime.now());
 
 let selectedZone = useStorage("defaultZone", "");
+let defaultZoneList = useStorage<ZoneOptionResponse.Response>(
+  "defaultZoneList",
+  {} as ZoneOptionResponse.Response
+);
+
 let { data: zoneList } = useQuery<ZoneOptionResponse.Response>(
   "zones",
-  fetchZones
+  async () => {
+    const data = await fetchZones();
+    defaultZoneList.value = data;
+    return data;
+  },
+  {
+    initialData: defaultZoneList,
+  }
 );
 
 let { isLoading: isLoadingNewTime, data: dayData } =
@@ -175,24 +187,28 @@ const getTimingFor = () => {
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <div
-      class="min-h-[40px] pt-14 text-center font-domine text-4xl text-white"
-      style="text-shadow: 0px 5px 5px rgba(255, 255, 255, 0.1)"
-    >
-      {{ countDown }}
+  <div class="min-h-screen pt-14">
+    <div class="h-full min-h-[50px]">
+      <div
+        class="text-center font-domine text-4xl text-white"
+        style="text-shadow: 0px 5px 5px rgba(255, 255, 255, 0.1)"
+      >
+        {{ countDown }}
+      </div>
     </div>
-    <div
-      class="min-h-[40px] text-center font-vollkorn text-3xl font-bold capitalize text-primary"
-      style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
-      v-show="countDown"
-    >
-      Until {{ closestKey }}
+    <div class="h-full min-h-[50px]">
+      <div
+        class="text-center font-vollkorn text-3xl font-bold capitalize text-primary"
+        v-show="countDown"
+        style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
+      >
+        Until {{ closestKey }}
+      </div>
     </div>
     <Listbox v-model="selectedZone" class="mx-auto w-60 text-center">
       <div class="relative mt-1">
         <ListboxButton
-          class="mt-9 flex w-full items-center justify-center gap-x-1 rounded bg-primary-darker p-3 text-center font-vollkorn text-lg font-bold leading-none text-white focus:outline-none focus-visible:border-primary-darker focus-visible:ring-2 focus-visible:ring-primary-darker focus-visible:ring-opacity-75 focus-visible:ring-offset-2"
+          class="flex w-full items-center justify-center gap-x-1 rounded bg-primary-darker p-3 text-center font-vollkorn text-lg font-bold leading-none text-white focus:outline-none focus-visible:border-primary-darker focus-visible:ring-2 focus-visible:ring-primary-darker focus-visible:ring-opacity-75 focus-visible:ring-offset-2"
           style="box-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
         >
           <IconLocation class="h-5 w-5 text-white" />
@@ -238,7 +254,7 @@ const getTimingFor = () => {
     </Listbox>
 
     <div
-      class="mx-auto mt-3 h-14 max-w-xl px-10 text-center font-vollkorn text-base font-bold lining-nums proportional-nums text-primary"
+      class="mx-auto mt-3 h-full min-h-[60px] max-w-xl px-10 text-center font-vollkorn text-base font-bold lining-nums proportional-nums text-primary"
       style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
     >
       {{ getZoneText }}
