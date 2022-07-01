@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import useKy from "@/compositions/useKy";
-import { DateTime, Duration } from "luxon";
+import { DateTime } from "luxon";
 import { computed, onMounted, ref, watch } from "vue";
 import {
   Listbox,
@@ -190,30 +190,42 @@ getZones();
           <IconLocation class="h-5 w-5 text-white" />
           {{ getStateText() || "Choose location" }}
         </ListboxButton>
-        <ListboxOptions
-          class="absolute mt-1 max-h-96 overflow-auto rounded border-b-2 border-primary-darker bg-card-background focus:outline-none"
+        <transition
+          enter-active-class="transition duration-150	ease-out"
+          enter-from-class="-translate-y-10 opacity-0"
+          enter-to-class="translate-y-0 opacity-100"
+          leave-active-class="transition duration-100 ease-out"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
         >
-          <template v-for="(zones, index) in zoneList" :key="index">
-            <div
-              class="px-5 py-1 text-left font-vollkorn text-lg font-bold text-primary"
-            >
-              {{ index }}
-            </div>
-            <ListboxOption
-              v-slot="{ selected, active }"
-              v-for="(zone, zoneIndex) in zones"
-              :key="`${index}/${zoneIndex}`"
-              :value="`${index}/${zoneIndex}`"
-            >
+          <ListboxOptions
+            class="absolute mt-1 max-h-96 overflow-auto rounded border-b-2 border-primary-darker bg-card-background focus:outline-none"
+          >
+            <template v-for="(zones, index) in zoneList" :key="index">
               <div
-                class="px-5 py-1 text-left font-domine text-sm lining-nums proportional-nums text-white hover:bg-primary hover:text-white"
-                :class="{ 'bg-primary-darker': selected, 'bg-primary': active }"
+                class="px-5 py-1 text-left font-vollkorn text-lg font-bold text-primary"
               >
-                {{ zoneIndex }}-{{ zone }}
+                {{ index }}
               </div>
-            </ListboxOption>
-          </template>
-        </ListboxOptions>
+              <ListboxOption
+                v-slot="{ selected, active }"
+                v-for="(zone, zoneIndex) in zones"
+                :key="`${index}/${zoneIndex}`"
+                :value="`${index}/${zoneIndex}`"
+              >
+                <div
+                  class="px-5 py-1 text-left font-domine text-sm lining-nums proportional-nums text-white hover:bg-primary hover:text-white"
+                  :class="{
+                    'bg-primary-darker': selected,
+                    'bg-primary': active,
+                  }"
+                >
+                  {{ zoneIndex }}-{{ zone }}
+                </div>
+              </ListboxOption>
+            </template>
+          </ListboxOptions>
+        </transition>
       </div>
     </Listbox>
 
