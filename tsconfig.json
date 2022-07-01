@@ -6,6 +6,7 @@
     "src/**/*.vue"
   ],
   "compilerOptions": {
+    "noImplicitAny": false,
     "baseUrl": ".",
     "strictNullChecks": true,
     "types": [

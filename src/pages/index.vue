@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import useKy from "@/compositions/useKy";
-import { DateTime } from "luxon";
-import { computed, ref, watch } from "vue";
+import { DateTime, Duration } from "luxon";
+import { computed, onMounted, ref, watch } from "vue";
 import {
   Listbox,
   ListboxButton,
@@ -13,11 +13,19 @@ import IconLocation from "@/components/IconLocation.vue";
 import TimeBox from "../components/TimeBox.vue";
 import _ from "lodash-es";
 
-const date = DateTime.now().toISODate();
-
+const now = ref<DateTime>(DateTime.now());
+let tick;
 let selectedZone = ref("");
+let closestKey = ref();
+let closestTime = ref<DateTime>();
 let zoneList = ref<ZoneOptionResponse.Response | Record<string, never>>({});
 let dayData = ref<PrayerTimeResponse.Response | Record<string, never>>({});
+
+onMounted(() => {
+  tick = setInterval(() => {
+    now.value = now.value.plus({ millisecond: 100 });
+  }, 100);
+});
 
 const prayerTime = computed(() => {
   let data: Omit<PrayerTimeResponse.Response, "date"> = {} as Omit<
@@ -34,13 +42,59 @@ const prayerTime = computed(() => {
   return data;
 });
 
+const countDown = computed(() => {
+  if (!closestTime.value) return null;
+
+  const diff = closestTime.value
+    .diff(now.value)
+    .shiftTo("hour", "minute")
+    .toObject();
+
+  console.log(diff);
+
+  const hour = diff.hours;
+  const min = diff.minutes;
+
+  let text: string;
+  if (hour && hour > 0) text = `${hour} hour`;
+
+  if (hour && hour > 0 && min && min > 0)
+    text = `${text} ${min.toFixed(0)} minute`;
+  else if (min && min > 0) text = `${min.toFixed(0)} minute`;
+
+  return text;
+});
+
 const ky = useKy();
 
 // Fetch new time on zone change
-watch(selectedZone, () => {
+watch(selectedZone, async () => {
   const zone: string = selectedZone.value.split("/")[1];
 
-  getTime(zone);
+  await getTime(zone);
+
+  const timesAndtime: [string, DateTime][] = [];
+
+  for (const [key, time] of Object.entries(prayerTime.value)) {
+    const t = DateTime.fromFormat(time, "t");
+    timesAndtime.push([key, t]);
+  }
+
+  let sortedTimes = timesAndtime.sort(
+    (a, b) =>
+      Math.abs(now.value.toMillis() - a[1].toMillis()) -
+      Math.abs(now.value.toMillis() - b[1].toMillis())
+  );
+
+  for (const time of sortedTimes) {
+    if (time[1] < now.value) {
+      continue;
+    } else {
+      closestKey.value = time[0];
+      closestTime.value = time[1];
+      break;
+    }
+  }
 });
 
 function getStateText() {
@@ -60,8 +114,6 @@ function getZoneText() {
 }
 
 const getTimingFor = () => {
-  console.log(dayData.value);
-
   if (!_.isEmpty(dayData.value))
     return DateTime.fromISO(dayData.value.date).toLocaleString();
   else return null;
@@ -78,7 +130,7 @@ const getTime = async (zone: string) => {
   const data = await ky
     .get("time", {
       searchParams: {
-        date,
+        date: now.value.toISODate(),
         zone,
       },
     })
@@ -103,13 +155,14 @@ getZones();
       class="pt-14 text-center font-domine text-4xl text-white"
       style="text-shadow: 0px 5px 5px rgba(255, 255, 255, 0.1)"
     >
-      12 hours 30 minutes
+      {{ countDown }}
     </div>
     <div
-      class="text-center font-vollkorn text-3xl font-bold text-primary"
+      class="text-center font-vollkorn text-3xl font-bold capitalize text-primary"
       style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
+      v-show="countDown"
     >
-      Until Isha
+      Until {{ closestKey }}
     </div>
     <Listbox v-model="selectedZone" class="mx-auto w-60 text-center">
       <div class="relative mt-1">
@@ -121,44 +174,55 @@ getZones();
           {{ getStateText() || "Choose location" }}
         </ListboxButton>
         <ListboxOptions
-          class="absolute mt-1 max-h-96 overflow-auto rounded bg-white focus:outline-none"
+          class="absolute mt-1 max-h-96 overflow-auto rounded border-b-2 border-primary-darker bg-card-background focus:outline-none"
         >
           <template v-for="(zones, index) in zoneList" :key="index">
             <div
-              class="px-5 py-1 text-left font-vollkorn text-lg font-bold text-primary-darker"
+              class="px-5 py-1 text-left font-vollkorn text-lg font-bold text-primary"
             >
               {{ index }}
             </div>
             <ListboxOption
+              v-slot="{ selected, active }"
               v-for="(zone, zoneIndex) in zones"
               :key="`${index}/${zoneIndex}`"
               :value="`${index}/${zoneIndex}`"
-              class="px-5 py-1 text-left font-domine text-sm lining-nums proportional-nums text-primary-darker hover:bg-primary-darker hover:text-white"
-              >{{ zoneIndex }}-{{ zone }}</ListboxOption
             >
+              <div
+                class="px-5 py-1 text-left font-domine text-sm lining-nums proportional-nums text-white hover:bg-primary hover:text-white"
+                :class="{ 'bg-primary-darker': selected, 'bg-primary': active }"
+              >
+                {{ zoneIndex }}-{{ zone }}
+              </div>
+            </ListboxOption>
           </template>
         </ListboxOptions>
       </div>
     </Listbox>
 
     <div
-      class="mt-3 px-10 text-center font-vollkorn text-base font-bold lining-nums proportional-nums text-primary"
+      class="mx-auto mt-3 h-14 max-w-xl px-10 text-center font-vollkorn text-base font-bold lining-nums proportional-nums text-primary"
       style="text-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
     >
       {{ getZoneText() }}
     </div>
 
-    <div class="mt-12 flex flex-col gap-y-3 px-1">
+    <div class="mt-12 flex flex-col items-center justify-center gap-y-3 px-2">
       <TimeBox
         v-for="(value, key) in prayerTime"
         :key="key"
         :title="key"
         :time="value"
+        class="shadow-sm"
+        :class="{
+          'bg-primary': key === closestKey,
+          'shadow-primary': key === closestKey,
+        }"
       />
     </div>
 
     <div
-      class="mt-2 flex flex-row-reverse px-1 font-vollkorn lining-nums proportional-nums text-white"
+      class="mx-auto mt-2 flex max-w-xl flex-row-reverse px-2 font-vollkorn lining-nums proportional-nums text-white"
     >
       {{ getTimingFor() || "" }}
     </div>

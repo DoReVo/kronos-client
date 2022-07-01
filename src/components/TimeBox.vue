@@ -1,7 +1,6 @@
 <template>
   <div
-    class="flex items-center justify-between rounded bg-card-background p-4 font-domine text-2xl text-white"
-    style="box-shadow: 0px 5px 5px rgba(69, 76, 94, 0.2)"
+    class="flex w-full max-w-xl items-center justify-between rounded bg-card-background p-4 font-domine text-2xl text-white"
   >
     <div>{{ props.title?.toUpperCase() }}</div>
     <div>{{ props.time }}</div>

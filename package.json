@@ -11,6 +11,7 @@
   "dependencies": {
     "@headlessui/vue": "^1.6.5",
     "@heroicons/vue": "^1.0.6",
+    "@vueuse/motion": "^2.0.0-beta.12",
     "ky": "^0.30.0",
     "lodash-es": "^4.17.21",
     "luxon": "^2.4.0",
