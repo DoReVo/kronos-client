@@ -12,14 +12,26 @@ import type { ZoneOptionResponse, PrayerTimeResponse } from "@/types/API";
 import IconLocation from "@/components/IconLocation.vue";
 import TimeBox from "../components/TimeBox.vue";
 import _ from "lodash-es";
+import Spinner from "../components/Spinner.vue";
 
 const now = ref<DateTime>(DateTime.now());
 let tick;
+
+let isLoadingNewTime = ref(false);
 let selectedZone = ref("");
 let closestKey = ref();
 let closestTime = ref<DateTime>();
 let zoneList = ref<ZoneOptionResponse.Response | Record<string, never>>({});
-let dayData = ref<PrayerTimeResponse.Response | Record<string, never>>({});
+let dayData = ref<PrayerTimeResponse.Response | Record<string, never>>({
+  date: "",
+  imsak: "",
+  fajr: "",
+  syuruk: "",
+  dhuhr: "",
+  asr: "",
+  maghrib: "",
+  isha: "",
+});
 
 onMounted(() => {
   tick = setInterval(() => {
@@ -50,8 +62,6 @@ const countDown = computed(() => {
     .shiftTo("hour", "minute")
     .toObject();
 
-  console.log(diff);
-
   const hour = diff.hours;
   const min = diff.minutes;
 
@@ -69,31 +79,38 @@ const ky = useKy();
 
 // Fetch new time on zone change
 watch(selectedZone, async () => {
-  const zone: string = selectedZone.value.split("/")[1];
+  try {
+    isLoadingNewTime.value = true;
+    const zone: string = selectedZone.value.split("/")[1];
 
-  await getTime(zone);
+    await getTime(zone);
 
-  const timesAndtime: [string, DateTime][] = [];
+    const timesAndtime: [string, DateTime][] = [];
 
-  for (const [key, time] of Object.entries(prayerTime.value)) {
-    const t = DateTime.fromFormat(time, "t");
-    timesAndtime.push([key, t]);
-  }
-
-  let sortedTimes = timesAndtime.sort(
-    (a, b) =>
-      Math.abs(now.value.toMillis() - a[1].toMillis()) -
-      Math.abs(now.value.toMillis() - b[1].toMillis())
-  );
-
-  for (const time of sortedTimes) {
-    if (time[1] < now.value) {
-      continue;
-    } else {
-      closestKey.value = time[0];
-      closestTime.value = time[1];
-      break;
+    for (const [key, time] of Object.entries(prayerTime.value)) {
+      const t = DateTime.fromFormat(time, "t");
+      timesAndtime.push([key, t]);
     }
+
+    let sortedTimes = timesAndtime.sort(
+      (a, b) =>
+        Math.abs(now.value.toMillis() - a[1].toMillis()) -
+        Math.abs(now.value.toMillis() - b[1].toMillis())
+    );
+
+    for (const time of sortedTimes) {
+      if (time[1] < now.value) {
+        continue;
+      } else {
+        closestKey.value = time[0];
+        closestTime.value = time[1];
+        break;
+      }
+    }
+  } catch (error) {
+    console.log(error);
+  } finally {
+    isLoadingNewTime.value = false;
   }
 });
 
@@ -114,7 +131,7 @@ function getZoneText() {
 }
 
 const getTimingFor = () => {
-  if (!_.isEmpty(dayData.value))
+  if (!_.isEmpty(dayData.value) && dayData.value.date)
     return DateTime.fromISO(dayData.value.date).toLocaleString();
   else return null;
 };
@@ -150,7 +167,7 @@ getZones();
 </script>
 
 <template>
-  <div class="">
+  <div class="min-h-screen">
     <div
       class="pt-14 text-center font-domine text-4xl text-white"
       style="text-shadow: 0px 5px 5px rgba(255, 255, 255, 0.1)"
@@ -207,13 +224,20 @@ getZones();
       {{ getZoneText() }}
     </div>
 
-    <div class="mt-12 flex flex-col items-center justify-center gap-y-3 px-2">
+    <div
+      class="mt-12 flex min-h-[520px] w-full flex-col items-center justify-start gap-y-3 px-2"
+    >
+      <Spinner
+        class="w-h-10 mx-auto h-10 text-primary"
+        v-if="isLoadingNewTime"
+      ></Spinner>
       <TimeBox
         v-for="(value, key) in prayerTime"
         :key="key"
         :title="key"
         :time="value"
         class="shadow-sm"
+        v-else
         :class="{
           'bg-primary': key === closestKey,
           'shadow-primary': key === closestKey,
