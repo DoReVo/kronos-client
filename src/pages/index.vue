@@ -8,13 +8,13 @@ import {
   ListboxOptions,
 } from "@headlessui/vue";
 import type { ZoneOptionResponse, PrayerTimeResponse } from "@/types/API";
-import IconLocation from "@/components/IconLocation.vue";
 import TimeBox from "../components/TimeBox.vue";
 import { isEmpty } from "lodash-es";
 import Spinner from "../components/Spinner.vue";
 import { useStorage } from "@vueuse/core";
 import { useQuery } from "vue-query";
 import { fetchDailyTime, fetchZones } from "@/API/Time";
+import { ChevronDownIcon } from "@heroicons/vue/outline";
 
 const now = ref<DateTime>(DateTime.now());
 
@@ -205,14 +205,22 @@ const getTimingFor = () => {
         Until {{ closestKey }}
       </div>
     </div>
-    <Listbox v-model="selectedZone" class="mx-auto w-60 text-center">
+    <Listbox
+      v-slot="{ open }"
+      v-model="selectedZone"
+      class="mx-auto w-60 text-center"
+    >
       <div class="relative mt-1">
         <ListboxButton
-          class="flex w-full items-center justify-center gap-x-1 rounded bg-primary-darker p-3 text-center font-vollkorn text-lg font-bold leading-none text-white focus:outline-none focus-visible:border-primary-darker focus-visible:ring-2 focus-visible:ring-primary-darker focus-visible:ring-opacity-75 focus-visible:ring-offset-2"
+          class="flex w-full items-center justify-center gap-x-1 rounded bg-primary-darker p-3 text-center font-vollkorn text-lg font-bold leading-none text-white"
           style="box-shadow: 0px 5px 5px rgba(64, 60, 185, 0.25)"
         >
-          <IconLocation class="h-5 w-5 text-white" />
-          {{ getStateText || "Choose location" }}
+          <span class="grow">{{ getStateText || "Choose location" }}</span>
+          <span
+            ><ChevronDownIcon
+              class="h-5 w-5 text-white transition"
+              :class="{ 'rotate-180': open }"
+          /></span>
         </ListboxButton>
         <transition
           enter-active-class="transition duration-150	ease-out"
