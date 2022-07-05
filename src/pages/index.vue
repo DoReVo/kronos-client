@@ -72,7 +72,7 @@ let { isLoading: isLoadingNewTime, data: dayData } =
 
 onMounted(async () => {
   setInterval(() => {
-    now.value = now.value.plus({ millisecond: 100 });
+    now.value = DateTime.now();
   }, 1000);
 });
 
